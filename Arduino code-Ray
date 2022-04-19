@@ -1,0 +1,114 @@
+
+#include <Adafruit_NeoPixel.h>
+
+// master run or not
+unsigned long run = 0;
+unsigned long iterations = 5;
+
+// params for buzzing
+unsigned long delay_s = 360;
+unsigned long buzz_s = 360; // must be multiple of "light-on"
+
+// params for lighting during buzz
+unsigned long LIGHT_ON_SECONDS = 1;
+unsigned long LIGHT_OFF_SECONDS = 19;
+
+////////////////////////////////////////////////
+
+// for buzz
+int duty_cycle = 127;
+int buzz_pin = 6;
+
+// for light
+#define LED_pin 5
+#define NUM_PIX 24
+#define MAX_BRIGHTNESS 255
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_PIX, LED_pin, NEO_GRBW + NEO_KHZ800);
+
+// for iterations
+unsigned long loop_num = 1;
+
+void setup() {
+  
+  // setup buzz
+  pinMode(buzz_pin, OUTPUT);
+  Serial.begin(9600);
+
+  // setup led
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+
+}
+
+void loop() {
+  
+  unsigned long delay_ms = delay_s * 1000;
+  unsigned long buzz_ms = buzz_s * 1000;
+
+  // params for coloring
+  unsigned long SIDE1_START = 0;
+  unsigned long SIDE1_END = 23;
+  unsigned long BLUE = strip.Color(0, 0, MAX_BRIGHTNESS, 0);
+  unsigned long OFF = strip.Color(0, 0, 0, 0);
+  unsigned long LIGHT_ON_MS = LIGHT_ON_SECONDS * 1000;
+  unsigned long LIGHT_OFF_MS = LIGHT_OFF_SECONDS * 1000;
+
+  while(run){
+      
+    // do delay first
+    analogWrite(buzz_pin, 0);
+    Serial.print("Delay for ");
+    Serial.print(delay_ms);
+    Serial.print("ms.");
+    delay(delay_ms);
+
+    // do buzz
+    analogWrite(buzz_pin, duty_cycle);
+    Serial.print("Buzz for ");
+    Serial.print(buzz_ms);
+    Serial.print("ms.");
+    
+    // do light periodically
+    unsigned long light_cycle = LIGHT_ON_SECONDS + LIGHT_OFF_SECONDS;
+    unsigned long light_iters = buzz_s / light_cycle;
+
+    // iterate through light cycle and display
+    for(int i = 0; i < light_iters; i++){
+      activate_array(SIDE1_START, SIDE1_END, BLUE);
+      delay(LIGHT_ON_MS);
+      activate_array(SIDE1_START, SIDE1_END, OFF);
+      delay(LIGHT_OFF_MS);
+    }
+
+
+    // increment interations
+    loop_num = loop_num + 1;
+    if (loop_num > iterations){
+      
+      analogWrite(buzz_pin, 0);
+      Serial.print("Ending loop!");
+      unsigned long forever = 4000000000;
+      delay(forever);
+    }
+
+  }
+}
+
+
+static void activate_array(uint32_t px_start, uint32_t px_end, uint32_t color){
+
+  // iterate through pixels, if in range then turn on, otherwise turn off
+  for(int i = 0; i < NUM_PIX; i++){
+
+    // if side 1, display pixel. otherwise, wash
+    if ((i >= px_start) && (i <= px_end)){
+      strip.setPixelColor(i, color);
+    }
+    else{
+      strip.setPixelColor(i,0);
+    }
+  }
+
+  // push buffer
+  strip.show();
+}
