@@ -1,0 +1,465 @@
+
+[srcfilename pname]=uigetfile('*.mat','MultiSelect', 'on','Select the .mat files');
+cd(pname);
+load(srcfilename);
+
+%
+group1 = [4 5 7 9 10 11 12 14 15];  % Naive
+% 1,2,3,6,8,13,16 cracked
+group2 = [17 18 20 21 22 23 25 26 27 29 31];   % Buffer
+%19,24,28,30,32
+group3 = [33 34 36 37 38 39 40 42 43 45 47 48];   % Butanone
+%35,41,44,45,46
+time_between_frames = 3; % time between images in seconds
+
+ActValcrop1 = ActVal(group1, 1:1128);
+ActValcrop2 = ActVal(group2, 1:1128);
+ActValcrop3 = ActVal(group3, 1:1128);
+%%
+% 
+%   for x = 1:10
+%       disp(x)
+%   end
+% 
+
+%%
+
+numworms1 = length(group1);
+numworms2 = length(group2);
+numworms3 = length(group3);
+
+quiescence_threshold = 1;
+
+numtimepoints = size(ActVal,3);
+
+figure(1);
+subplot(211);
+imagesc(ActValcrop1);
+subplot(212);
+imagesc(ActValcrop2);
+%subplot(213);
+%imagesc(ActValcrop3);
+
+ActValcrop1Q = (ActValcrop1 >= quiescence_threshold);
+ActValcrop2Q = (ActValcrop2 >=  quiescence_threshold);
+ActValcrop3Q = (ActValcrop3 >=  quiescence_threshold);
+
+figure(2);
+subplot(211);
+imagesc(ActValcrop1Q);
+subplot(212);
+imagesc(ActValcrop2Q);
+%subplot(213);
+%imagesc(ActValcrop3Q);
+
+ActValcrop1totalQ = sum(1-ActValcrop1Q,2);
+ActValcrop2totalQ = sum(1-ActValcrop2Q,2);
+ActValcrop3totalQ = sum(1-ActValcrop3Q,2);
+
+ActValcrop1totalQ_M = sum(1-ActValcrop1Q,2)* time_between_frames/60;
+ActValcrop2totalQ_M = sum(1-ActValcrop2Q,2)* time_between_frames/60;
+ActValcrop3totalQ_M = sum(1-ActValcrop3Q,2)* time_between_frames/60;
+
+[ ActValcrop1Qsorted, index1] = sortrows([ActValcrop1totalQ ActValcrop1Q ]);
+[ ActValcrop2Qsorted, index2] = sortrows([ActValcrop2totalQ ActValcrop2Q ]);
+[ ActValcrop3Qsorted, index3] = sortrows([ActValcrop3totalQ ActValcrop3Q ]);
+
+ActValcrop1totalQsorted = ActValcrop1Qsorted(:,1)* time_between_frames/60;
+ActValcrop2totalQsorted = ActValcrop2Qsorted(:,1)* time_between_frames/60;
+ActValcrop3totalQsorted = ActValcrop3Qsorted(:,1)* time_between_frames/60;
+ActValcrop1Qsorted = ActValcrop1Qsorted(:,2:end);
+ActValcrop2Qsorted = ActValcrop2Qsorted(:,2:end);
+ActValcrop3Qsorted = ActValcrop3Qsorted(:,2:end);
+
+fontsize1 = 25;
+fontsize2  = 12;
+
+figure(3);clf;
+subplot(221);
+imagesc(ActValcrop1Qsorted);
+xlabel('Time (min)', 'FontSize', fontsize1)
+ax = gca;
+ax.XTick = 0:400:numtimepoints;
+ax.XTickLabel = [0:400:numtimepoints] * time_between_frames/60;
+ylabel('Worm Number', 'FontSize', fontsize1)
+ax = gca;
+ax.YTick = 1:numworms1;
+% ax.YTickLabel = ActValcrop1totalQsorted* time_between_frames/60;
+ax.YTickLabel = group1(index1); % Comment this out for sequential labeling
+%title(PathName, 'Interpreter', 'None', 'FontSize', fontsize1);
+title('Group 1');
+set(gca,'FontSize',fontsize2);
+% comment next three lines out to remove quiescence labels on right side of heat map
+for j=1:numworms1
+    text(numtimepoints*1.01,j, num2str(ActValcrop1totalQsorted(j)));
+end
+subplot(223);
+
+imagesc(ActValcrop2Qsorted);
+xlabel('Time (min)', 'FontSize', fontsize1);
+ax = gca;
+ax.XTick = 0:400:numtimepoints
+ax.XTickLabel = [0:400:numtimepoints] * time_between_frames/60;
+ylabel('Worm Number', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 1:numworms2;
+%ax.YTickLabel = ActValcrop2totalQsorted* time_between_frames/60;
+ax.YTickLabel = group2(index2);  % Comment this out for sequential labeling
+
+set(gca,'FontSize',fontsize2);
+
+fractionwithlessQ1 = [];
+fractionwithlessQ2 = [];
+maxtime = max([ActValcrop1totalQsorted; ActValcrop2totalQsorted]);
+for j=1:maxtime
+    fractionwithlessQ1(j) = sum(ActValcrop1totalQsorted < j)/length(group1);
+    fractionwithlessQ2(j) = sum(ActValcrop2totalQsorted < j)/length(group2);
+end
+title('Group 2');
+% comment next three lines out to remove quiescence labels on right side of heat map
+for j=1:numworms2
+    text(numtimepoints*1.01,j, num2str(ActValcrop2totalQsorted(j)* time_between_frames/60));
+end
+%figure(4);clf;
+lw=4;
+col=[0.2 0.9 0.2];
+
+subplot(222);
+plot(fractionwithlessQ1, '-k', 'LineWidth',lw);
+xlabel('Time')
+ax = gca;
+ax.XTick = 0:10:maxtime;
+ax.XTickLabel = [0:10:maxtime];
+ylabel('CDF ', 'FontSize', fontsize1);
+hold on;
+plot(fractionwithlessQ2, '-', 'Color',col,'LineWidth',lw);
+xlabel('Time (min)', 'FontSize', fontsize1);
+ylabel('CDF ', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 0:.2:1;
+%title(PathName, 'Interpreter', 'None');
+[h,pp] = kstest2(ActValcrop1totalQsorted, ActValcrop2totalQsorted)
+title(['Total quiescence, KS Test: p = ' num2str(pp)]);
+%title('Total quiescence');
+set(gca,'FontSize',fontsize2);
+
+%
+
+longestquiescence1 = [];
+for j=1:size(ActValcrop1,1)
+    d = (ActValcrop1(j,:) >= quiescence_threshold);
+    w = [ 1 d 1 ]; % auxiliary vector
+    runs_zeros = flip(sort(find(diff(w)==1)-find(diff(w)==-1))); % lengths of runs of 0's
+    if length(runs_zeros)>0
+        longestquiescence1(j) = runs_zeros(1)* time_between_frames;
+    end
+end
+
+longestquiescence2 = [];
+
+for j=1:size(ActValcrop2,1)
+    d = (ActValcrop2(j,:) >= quiescence_threshold);
+    w = [ 1 d 1 ]; % auxiliary vector
+    runs_zeros = flip(sort(find(diff(w)==1)-find(diff(w)==-1))); % lengths of runs of 0's
+    if length(runs_zeros)>0
+        longestquiescence2(j) = runs_zeros(1)* time_between_frames;
+    end
+end
+
+
+fractionwithlongestquiescence1shorterthan = [];
+fractionwithlongestquiescence2shorterthan = [];
+maxtime2 = max([longestquiescence1 longestquiescence2]);
+for j=1:maxtime2
+    fractionwithlongestquiescence1shorterthan(j) = sum(longestquiescence1 <= j)/length(group1);
+    fractionwithlongestquiescence2shorterthan(j) = sum(longestquiescence2 <= j)/length(group2);
+end
+skip=1;
+maxt=skip:skip:maxtime2;
+%figure(5);clf;
+
+subplot(224);
+plot(maxt,fractionwithlongestquiescence1shorterthan(skip:skip:end), '-k', 'LineWidth',lw);
+xlabel('Time (s)', 'FontSize', fontsize1);
+ax = gca;
+ax.XTick = 0:round(maxtime2/10):maxtime2;
+ax.XTickLabel = [0:round(maxtime2/10):maxtime2] * time_between_frames;
+ylabel('CDF ', 'FontSize', fontsize1);
+hold on;
+plot(maxt,fractionwithlongestquiescence2shorterthan(skip:skip:end), '-', 'Color',col, 'LineWidth',lw);
+xlabel('Time (s)', 'FontSize', fontsize1);
+ylabel('CDF ', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 0:.2:1;
+set(gca,'FontSize',fontsize2);
+set(gca,'FontSize',fontsize2);
+%title(PathName, 'Interpreter', 'None');
+[h,p] = kstest2(longestquiescence1, longestquiescence2)
+title(['Longest quiescence, KS Test: p = ' num2str(p)]);
+
+subplot(221);
+text(-2,-3, PathName, 'FontSize', 15);
+
+
+%FIGURE 4 COMPARING GROUP 1 AND GROUP 3
+
+figure(4);clf;
+subplot(221);
+imagesc(ActValcrop1Qsorted);
+xlabel('Time (min)', 'FontSize', fontsize1)
+ax = gca;
+ax.XTick = 0:400:numtimepoints;
+ax.XTickLabel = [0:400:numtimepoints] * time_between_frames/60;
+ylabel('Worm Number', 'FontSize', fontsize1)
+ax = gca;
+ax.YTick = 1:numworms1;
+% ax.YTickLabel = ActValcrop1totalQsorted* time_between_frames/60;
+ax.YTickLabel = group1(index1); % Comment this out for sequential labeling
+%title(PathName, 'Interpreter', 'None', 'FontSize', fontsize1);
+title('Group 1');
+set(gca,'FontSize',fontsize2);
+% comment next three lines out to remove quiescence labels on right side of heat map
+for j=1:numworms1
+    text(numtimepoints*1.01,j, num2str(ActValcrop1totalQsorted(j)));
+end
+subplot(223);
+
+imagesc(ActValcrop3Qsorted);
+xlabel('Time (min)', 'FontSize', fontsize1);
+ax = gca;
+ax.XTick = 0:400:numtimepoints
+ax.XTickLabel = [0:400:numtimepoints] * time_between_frames/60;
+ylabel('Worm Number', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 1:numworms3;
+%ax.YTickLabel = ActValcrop2totalQsorted* time_between_frames/60;
+ax.YTickLabel = group3(index3);  % Comment this out for sequential labeling
+
+set(gca,'FontSize',fontsize2);
+
+fractionwithlessQ1 = [];
+fractionwithlessQ3 = [];
+maxtime = max([ActValcrop1totalQsorted; ActValcrop3totalQsorted]);
+for j=1:maxtime
+    fractionwithlessQ1(j) = sum(ActValcrop1totalQsorted < j)/length(group1);
+    fractionwithlessQ3(j) = sum(ActValcrop3totalQsorted < j)/length(group3);
+end
+title('Group 3');
+% comment next three lines out to remove quiescence labels on right side of heat map
+for j=1:numworms3
+    text(numtimepoints*1.01,j, num2str(ActValcrop3totalQsorted(j)* time_between_frames/60));
+end
+%figure(4);clf;
+lw=4;
+col=[0.2 0.9 0.2];
+
+subplot(222);
+plot(fractionwithlessQ1, '-k', 'LineWidth',lw);
+xlabel('Time')
+ax = gca;
+ax.XTick = 0:10:maxtime;
+ax.XTickLabel = [0:10:maxtime];
+ylabel('CDF ', 'FontSize', fontsize1);
+hold on;
+plot(fractionwithlessQ3, '-', 'Color',col,'LineWidth',lw);
+xlabel('Time (min)', 'FontSize', fontsize1);
+ylabel('CDF ', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 0:.2:1;
+%title(PathName, 'Interpreter', 'None');
+[h,pp] = kstest2(ActValcrop1totalQsorted, ActValcrop3totalQsorted)
+title(['Total quiescence, KS Test: p = ' num2str(pp)]);
+%title('Total quiescence');
+set(gca,'FontSize',fontsize2);
+
+%
+
+longestquiescence1 = [];
+for j=1:size(ActValcrop1,1)
+    d = (ActValcrop1(j,:) >= quiescence_threshold);
+    w = [ 1 d 1 ]; % auxiliary vector
+    runs_zeros = flip(sort(find(diff(w)==1)-find(diff(w)==-1))); % lengths of runs of 0's
+    if length(runs_zeros)>0
+        longestquiescence1(j) = runs_zeros(1)* time_between_frames;
+    end
+end
+
+longestquiescence3 = [];
+
+for j=1:size(ActValcrop3,1)
+    d = (ActValcrop3(j,:) >= quiescence_threshold);
+    w = [ 1 d 1 ]; % auxiliary vector
+    runs_zeros = flip(sort(find(diff(w)==1)-find(diff(w)==-1))); % lengths of runs of 0's
+    if length(runs_zeros)>0
+        longestquiescence3(j) = runs_zeros(1)* time_between_frames;
+    end
+end
+
+
+fractionwithlongestquiescence1shorterthan = [];
+fractionwithlongestquiescence3shorterthan = [];
+maxtime3 = max([longestquiescence1 longestquiescence3]);
+for j=1:maxtime3
+    fractionwithlongestquiescence1shorterthan(j) = sum(longestquiescence1 <= j)/length(group1);
+    fractionwithlongestquiescence3shorterthan(j) = sum(longestquiescence3 <= j)/length(group3);
+end
+skip=1;
+maxt=skip:skip:maxtime3;
+%figure(5);clf;
+
+subplot(224);
+plot(maxt,fractionwithlongestquiescence1shorterthan(skip:skip:end), '-k', 'LineWidth',lw);
+xlabel('Time (s)', 'FontSize', fontsize1);
+ax = gca;
+ax.XTick = 0:round(maxtime3/10):maxtime3;
+ax.XTickLabel = [0:round(maxtime3/10):maxtime3] * time_between_frames;
+ylabel('CDF ', 'FontSize', fontsize1);
+hold on;
+plot(maxt,fractionwithlongestquiescence3shorterthan(skip:skip:end), '-', 'Color',col, 'LineWidth',lw);
+xlabel('Time (s)', 'FontSize', fontsize1);
+ylabel('CDF ', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 0:.2:1;
+set(gca,'FontSize',fontsize2);
+set(gca,'FontSize',fontsize2);
+%title(PathName, 'Interpreter', 'None');
+[h,p] = kstest2(longestquiescence1, longestquiescence3)
+title(['Longest quiescence, KS Test: p = ' num2str(p)]);
+
+subplot(221);
+text(-2,-3, PathName, 'FontSize', 15);
+
+%FIGURE 5 COMPARING GROUP 2 AND GROUP 3
+
+figure(5);clf;
+subplot(221);
+imagesc(ActValcrop2Qsorted);
+xlabel('Time (min)', 'FontSize', fontsize1)
+ax = gca;
+ax.XTick = 0:400:numtimepoints;
+ax.XTickLabel = [0:400:numtimepoints] * time_between_frames/60;
+ylabel('Worm Number', 'FontSize', fontsize1)
+ax = gca;
+ax.YTick = 1:numworms2;
+% ax.YTickLabel = ActValcrop1totalQsorted* time_between_frames/60;
+ax.YTickLabel = group2(index2); % Comment this out for sequential labeling
+%title(PathName, 'Interpreter', 'None', 'FontSize', fontsize1);
+title('Group 2');
+set(gca,'FontSize',fontsize2);
+% comment next three lines out to remove quiescence labels on right side of heat map
+for j=1:numworms2
+    text(numtimepoints*1.01,j, num2str(ActValcrop2totalQsorted(j)));
+end
+subplot(223);
+
+imagesc(ActValcrop3Qsorted);
+xlabel('Time (min)', 'FontSize', fontsize1);
+ax = gca;
+ax.XTick = 0:400:numtimepoints
+ax.XTickLabel = [0:400:numtimepoints] * time_between_frames/60;
+ylabel('Worm Number', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 1:numworms3;
+%ax.YTickLabel = ActValcrop2totalQsorted* time_between_frames/60;
+ax.YTickLabel = group3(index3);  % Comment this out for sequential labeling
+
+set(gca,'FontSize',fontsize2);
+
+fractionwithlessQ2 = [];
+fractionwithlessQ3 = [];
+maxtime = max([ActValcrop2totalQsorted; ActValcrop3totalQsorted]);
+for j=1:maxtime
+    fractionwithlessQ2(j) = sum(ActValcrop2totalQsorted < j)/length(group2);
+    fractionwithlessQ3(j) = sum(ActValcrop3totalQsorted < j)/length(group3);
+end
+title('Group 3');
+% comment next three lines out to remove quiescence labels on right side of heat map
+for j=1:numworms3
+    text(numtimepoints*1.01,j, num2str(ActValcrop3totalQsorted(j)* time_between_frames/60));
+end
+%figure(4);clf;
+lw=4;
+col=[0.2 0.9 0.2];
+
+subplot(222);
+plot(fractionwithlessQ2, '-k', 'LineWidth',lw);
+xlabel('Time')
+ax = gca;
+ax.XTick = 0:10:maxtime;
+ax.XTickLabel = [0:10:maxtime];
+ylabel('CDF ', 'FontSize', fontsize1);
+hold on;
+plot(fractionwithlessQ3, '-', 'Color',col,'LineWidth',lw);
+xlabel('Time (min)', 'FontSize', fontsize1);
+ylabel('CDF ', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 0:.2:1;
+%title(PathName, 'Interpreter', 'None');
+[h,pp] = kstest2(ActValcrop2totalQsorted, ActValcrop3totalQsorted)
+title(['Total quiescence, KS Test: p = ' num2str(pp)]);
+%title('Total quiescence');
+set(gca,'FontSize',fontsize2);
+
+%
+
+longestquiescence2 = [];
+for j=1:size(ActValcrop2,1)
+    d = (ActValcrop2(j,:) >= quiescence_threshold);
+    w = [ 1 d 1 ]; % auxiliary vector
+    runs_zeros = flip(sort(find(diff(w)==1)-find(diff(w)==-1))); % lengths of runs of 0's
+    if length(runs_zeros)>0
+        longestquiescence2(j) = runs_zeros(1)* time_between_frames;
+    end
+end
+
+longestquiescence3 = [];
+
+for j=1:size(ActValcrop3,1)
+    d = (ActValcrop3(j,:) >= quiescence_threshold);
+    w = [ 1 d 1 ]; % auxiliary vector
+    runs_zeros = flip(sort(find(diff(w)==1)-find(diff(w)==-1))); % lengths of runs of 0's
+    if length(runs_zeros)>0
+        longestquiescence3(j) = runs_zeros(1)* time_between_frames;
+    end
+end
+
+
+fractionwithlongestquiescence2shorterthan = [];
+fractionwithlongestquiescence3shorterthan = [];
+maxtime23 = max([longestquiescence2 longestquiescence3]);
+for j=1:maxtime23
+    fractionwithlongestquiescence2shorterthan(j) = sum(longestquiescence2 <= j)/length(group2);
+    fractionwithlongestquiescence3shorterthan(j) = sum(longestquiescence3 <= j)/length(group3);
+end
+skip=1;
+maxt=skip:skip:maxtime23;
+%figure(5);clf;
+
+subplot(224);
+plot(maxt,fractionwithlongestquiescence2shorterthan(skip:skip:end), '-k', 'LineWidth',lw);
+xlabel('Time (s)', 'FontSize', fontsize1);
+ax = gca;
+ax.XTick = 0:round(maxtime23/10):maxtime23;
+ax.XTickLabel = [0:round(maxtime23/10):maxtime23] * time_between_frames;
+ylabel('CDF ', 'FontSize', fontsize1);
+hold on;
+plot(maxt,fractionwithlongestquiescence3shorterthan(skip:skip:end), '-', 'Color',col, 'LineWidth',lw);
+xlabel('Time (s)', 'FontSize', fontsize1);
+ylabel('CDF ', 'FontSize', fontsize1);
+ax = gca;
+ax.YTick = 0:.2:1;
+set(gca,'FontSize',fontsize2);
+set(gca,'FontSize',fontsize2);
+%title(PathName, 'Interpreter', 'None');
+[h,p] = kstest2(longestquiescence2, longestquiescence3)
+title(['Longest quiescence, KS Test: p = ' num2str(p)]);
+
+subplot(221);
+text(-2,-3, PathName, 'FontSize', 15);
+
+% Save data in excel format
+xlswrite('05032021_Group_1,[ActValcrop1totalQsorted'])
+xlswrite('05032021_Group_2,[ActValcrop2totalQsorted'])
+xlswrite('05032021_Group_3,[ActValcrop3totalQsorted'])
+
+%end
